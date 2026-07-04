@@ -1,0 +1,73 @@
+REGISTRO DE ASISTENCIA
+
+1. Recolección de información
+
+Observación Directa: Mirar cómo el instructor toma asistencia ya sea en papel, o en Excel o directamente en Sofia plus, cuanto tiempo de clase se gasta tomando la asistencia.
+
+Encuesta Digital (Instructores y Aprendices): Se aplica un cuestionario breve, en que se les aplique a instructores y aprendices la necesidad de automatizar el registro de asistencia, con un método mas fácil como la lectura de un código qr.
+
+2. REQUISITOS FUNCIONALES 
+
+RF-01: 
+Nombre: Carga de Ficha de Aprendices
+Descripción: El sistema debe permitir al instructor importar la lista de aprendices activos mediante un archivo plano (.csv o .xlsx) extraído previamente de SOFIA Plus.
+
+RF-02: 
+Nombre: Registro automatizado
+Descripción: El sistema debe registrar la asistencia del aprendiz de forma inmediata al escanear un código (QR o código de barras de la cédula/tarjeta de identidad).
+
+RF-03:
+Nombre: Registro manual de contingencia
+Descripción: El instructor debe poder cambiar el estado de asistencia de forma manual en caso de que el aprendiz no tenga su documento o el escáner falle.
+
+RF-04:
+Nombre: Control de estados de asistencia
+Descripción: El sistema debe manejar cuatro estados para cada sesión: Asistió, Faltó, Retardo o Falta Justificada.
+
+RF-05: 
+Nombre: Calculo y alertas de asistencia
+Descripción:El sistema debe calcular el porcentaje de fallas acumuladas por cada aprendiz. Si supera el 15% de las horas del trimestre, debe generar una alerta visual y enviar un correo automático.
+
+RF-06:
+Nombre: Exportación de reportes
+Descripción: El sistema debe generar reportes consolidados en formato Excel listos para que el instructor los homologue o suba a SOFIA Plus.
+
+
+3. CASOS DE USO
+
+ESPECIFICACION DE CASO DE USO PRINCIPAL
+
+Caso de Uso: CU-02: Registrar Asistencia por Escáner.
+
+Actor: Instructor (con la interacción del Aprendiz al presentar el código).
+
+Flujo Normal:
+
+El instructor activa el modo "Escanear Asistencia" para una ficha específica.
+
+El aprendiz presenta su código QR/Barras ante la cámara o lector.
+
+El sistema valida el ID del aprendiz en la lista de la ficha.
+
+El sistema registra el estado como "Asistió" junto con la fecha y hora actual.
+
+El sistema emite una confirmación visual en pantalla.
+
+Flujo Alternativo (Aprendiz no registrado): Si el ID escaneado no pertenece a la ficha cargada, el sistema emite un sonido/alerta de error y no registra la asistencia.
+
+DIAGRAMA DE CLASES
+
+Un Instructor puede gestionar una o muchas Fichas (Relación 1 \dots...*).
+
+Una Ficha tiene asociados muchos Aprendices (1 \... *).
+
+Cada Aprendiz genera múltiples Registros de Asistencia (1 \...*) a lo largo del trimestre.
+
+Una Ficha genera un Reporte Consolidado al finalizar el periodo para ser cargado en SOFIA Plus.
+
+
+
+
+
+
+
