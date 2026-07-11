@@ -1,0 +1,117 @@
+================================================================
+ REGISTRO DE ASISTENCIA - SENA
+ Automatización del registro de asistencia con código QR
+================================================================
+
+
+----------------------------------------------------------------
+1. RECOLECCIÓN DE INFORMACIÓN
+----------------------------------------------------------------
+
+1.1 Observación directa
+    - Se observa cómo el instructor toma la asistencia actualmente:
+      en papel, en Excel o directamente en SOFIA Plus.
+    - Se mide cuánto tiempo de clase se gasta en este proceso.
+
+1.2 Encuesta digital (instructores y aprendices)
+    - Se aplica un cuestionario breve a instructores y aprendices.
+    - Objetivo: identificar la necesidad de automatizar el registro
+      de asistencia mediante un método más ágil, como la lectura
+      de un código QR.
+
+
+----------------------------------------------------------------
+2. REQUISITOS FUNCIONALES
+----------------------------------------------------------------
+
+RF-01 | Carga de ficha de aprendices
+    Descripción: El sistema debe permitir al instructor importar la
+    lista de aprendices activos mediante un archivo plano (.csv o
+    .xlsx) extraído previamente de SOFIA Plus.
+
+RF-02 | Registro automatizado
+    Descripción: El sistema debe registrar la asistencia del
+    aprendiz de forma inmediata al escanear un código (QR o código
+    de barras de la cédula/tarjeta de identidad).
+
+RF-03 | Registro manual de contingencia
+    Descripción: El instructor debe poder cambiar el estado de
+    asistencia de forma manual en caso de que el aprendiz no tenga
+    su documento o el escáner falle.
+
+RF-04 | Control de estados de asistencia
+    Descripción: El sistema debe manejar cuatro estados para cada
+    sesión:
+        - Asistió
+        - Faltó
+        - Retardo
+        - Falta justificada
+
+RF-05 | Cálculo y alertas de asistencia
+    Descripción: El sistema debe calcular el porcentaje de fallas
+    acumuladas por cada aprendiz. Si supera el 15% de las horas del
+    trimestre, debe generar una alerta visual y enviar un correo
+    automático.
+
+RF-06 | Exportación de reportes
+    Descripción: El sistema debe generar reportes consolidados en
+    formato Excel, listos para que el instructor los homologue o
+    los suba a SOFIA Plus.
+
+
+----------------------------------------------------------------
+3. CASOS DE USO
+----------------------------------------------------------------
+
+CU-02 | Registrar Asistencia por Escáner
+    Actor principal: Instructor
+    Actor secundario: Aprendiz (presenta el código)
+
+    Flujo normal:
+        1. El instructor activa el modo "Escanear Asistencia" para
+           una ficha específica.
+        2. El aprendiz presenta su código QR/barras ante la cámara
+           o el lector.
+        3. El sistema valida el ID del aprendiz en la lista de la
+           ficha.
+        4. El sistema registra el estado como "Asistió" junto con
+           la fecha y hora actual.
+        5. El sistema emite una confirmación visual en pantalla.
+
+    Flujo alternativo (aprendiz no registrado):
+        - Si el ID escaneado no pertenece a la ficha cargada, el
+          sistema emite un sonido/alerta de error y no registra la
+          asistencia.
+
+
+----------------------------------------------------------------
+4. DIAGRAMA DE CLASES (relaciones del modelo)
+----------------------------------------------------------------
+
+    Instructor  --- (1 a muchas) --->  Ficha
+    Ficha       --- (1 a muchas) --->  Aprendiz
+    Aprendiz    --- (1 a muchas) --->  Registro de Asistencia
+    Ficha       --- (1 a 1)      --->  Reporte Consolidado
+
+    Descripción:
+        - Un Instructor puede gestionar una o muchas Fichas.
+        - Una Ficha tiene asociados muchos Aprendices.
+        - Cada Aprendiz genera múltiples Registros de Asistencia a
+          lo largo del trimestre.
+        - Una Ficha genera un Reporte Consolidado al finalizar el
+          periodo, para ser cargado en SOFIA Plus.
+
+
+----------------------------------------------------------------
+5. RELACIÓN CON EL MOCKUP (pantallas propuestas)
+----------------------------------------------------------------
+
+    Pantalla 1 - Selección de ficha ................. RF-01
+    Pantalla 2 - Escanear asistencia ................. RF-02 / CU-02
+    Pantalla 3 - Lista y registro manual ............. RF-03 / RF-04
+    Pantalla 4 - Alertas de inasistencia ............. RF-05
+    Pantalla 5 - Exportar reporte .................... RF-06
+
+================================================================
+ FIN DEL DOCUMENTO
+================================================================
