@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SOA-QR · Control de Fichaje</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+<style>
+  :root{
+    /* ---- identidad: tarjeta de fichaje / control industrial ---- */
+    --ink:#171b1e;          /* grafito, casi negro pero no puro */
+    --ink-2:#20262a;
+    --panel:#232a2e;
+    --panel-2:#2b3337;
+    --paper:#eef0eb;        /* papel institucional, no crema */
+    --card:#ffffff;
+    --line:#d7dbd2;
+    --line-soft:#e6e9e1;
+    --text:#1a1f1c;
+    --muted:#66716a;
+    --signal:#e8720c;       /* ámbar de señalización, no terracota */
+    --signal-ink:#8a3f06;
+    --ok:#3f6e3a;
+    --ok-bg:#e7f0e3;
+    --warn:#a9701c;
+    --warn-bg:#faf0dd;
+    --danger:#a8362a;
+    --danger-bg:#fbe9e6;
+    --info:#3f5a8a;
+    --info-bg:#e8edf6;
+    --radius:4px;
+    --font-display:'Archivo Narrow', sans-serif;
+    --font-body:'IBM Plex Sans', -apple-system, Arial, sans-serif;
+    --font-mono:'IBM Plex Mono', 'Courier New', monospace;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:var(--font-body);background:var(--paper);color:var(--text);}
+  h1,h2,h3{font-family:var(--font-display);font-weight:700;letter-spacing:.2px;margin:0;text-transform:uppercase;}
+
+  /* ---- textura sutil de papel/trama sobre el fondo ---- */
+  body::before{
+    content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+    background-image:
+      repeating-linear-gradient(0deg, rgba(0,0,0,.015) 0px, rgba(0,0,0,.015) 1px, transparent 1px, transparent 3px);
+    opacity:.5;
+  }
+
+  header.topbar{
+    background:var(--ink);color:#f2efe8;padding:0 22px;
+    display:flex;align-items:stretch;justify-content:space-between;
+    position:sticky;top:0;z-index:20;border-bottom:3px solid var(--signal);
+    height:60px;
+  }
+  .brand{display:flex;align-items:center;gap:13px;}
+  .brand .logo{
+    width:40px;height:40px;border:2px solid var(--signal);
+    display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;color:var(--signal);
+    font-family:var(--font-mono);letter-spacing:.5px;transform:rotate(0deg);
+  }
+  .brand .titles{line-height:1.15;}
+  .brand .titles b{font-size:16px;font-family:var(--font-display);letter-spacing:.4px;text-transform:uppercase;}
+  .brand .titles span{font-size:10.5px;color:#a9a397;display:block;font-family:var(--font-mono);letter-spacing:.3px;margin-top:2px;}
+  .top-right{display:flex;align-items:center;gap:16px;font-size:12.5px;font-family:var(--font-mono);}
+  .session-pill{
+    background:var(--panel);border:1px solid #3a4247;padding:6px 12px;
+    display:flex;align-items:center;gap:7px;font-size:11.5px;
+  }
+  .dot{width:7px;height:7px;background:var(--signal);display:inline-block;box-shadow:0 0 0 3px rgba(232,114,12,.18);}
+  .avatar{width:32px;height:32px;background:var(--panel);border:1px solid #3a4247;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;font-family:var(--font-mono);}
+
+  .layout{display:flex;min-height:calc(100vh - 60px);position:relative;z-index:1;}
+  nav.sidebar{
+    width:216px;background:var(--ink);border-right:1px solid #2a3136;padding:14px 0;flex-shrink:0;
+  }
+  nav.sidebar .divider-label{
+    font-family:var(--font-mono);font-size:9.5px;color:#6b746e;letter-spacing:1.5px;padding:6px 16px;margin-top:4px;
+  }
+  nav.sidebar button{
+    width:100%;text-align:left;padding:10px 16px;border:none;background:none;
+    font-size:12.5px;color:#c6c2b6;cursor:pointer;display:flex;align-items:center;gap:11px;
+    border-left:3px solid transparent;font-family:var(--font-body);
+  }
+  nav.sidebar button .ic{width:6px;height:6px;background:#4a524c;flex-shrink:0;}
+  nav.sidebar button.active{background:var(--panel);color:#fff;border-left-color:var(--signal);font-weight:600;}
+  nav.sidebar button.active svg{stroke:var(--signal);}
+  nav.sidebar button:hover:not(.active){background:#1e2427;}
+  nav.sidebar button svg{flex-shrink:0;stroke:#8b9089;}
+
+  main{flex:1;padding:24px 28px;overflow-x:auto;}
+  .section{display:none;}
+  .section.active{display:block;animation:fade .15s ease;}
+  @keyframes fade{from{opacity:0;transform:translateY(2px);}to{opacity:1;transform:none;}}
+
+  .stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;margin-bottom:20px;background:var(--line);border:1px solid var(--line);}
+  .stat-card{background:var(--card);padding:15px 17px;position:relative;}
+  .stat-card::before{content:attr(data-idx);position:absolute;top:10px;right:12px;font-family:var(--font-mono);font-size:10px;color:#c3c8bd;}
+  .stat-card .lbl{font-size:10.5px;color:var(--muted);margin-bottom:8px;font-family:var(--font-mono);letter-spacing:.6px;text-transform:uppercase;}
+  .stat-card .val{font-size:30px;font-weight:700;font-family:var(--font-mono);}
+  .stat-card .sub{font-size:11px;color:var(--muted);margin-top:3px;font-family:var(--font-mono);}
+
+  .grid-2{display:grid;grid-template-columns:1.5fr 1fr;gap:18px;align-items:start;}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:20px;}
+  .card h3{font-size:15.5px;margin-bottom:12px;color:var(--ink);letter-spacing:.3px;}
+  .muted{color:var(--muted);}
+  .small{font-size:12.5px;}
+
+  /* ---- elemento firma: la tarjeta QR con look de ficha perforada de reloj checador ---- */
+  .qr-box{
+    background:var(--ink);border-radius:2px;padding:20px 20px 16px;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;color:#d8d3c5;gap:10px;position:relative;
+    background-image:radial-gradient(circle at 8px 8px, var(--paper) 3px, transparent 3.5px),
+                      radial-gradient(circle at 8px 8px, var(--paper) 3px, transparent 3.5px);
+    background-position:0 0, 0 100%;
+    background-repeat:repeat-x;
+    background-size:22px 8px, 22px 8px;
+    border-top:2px dashed #3a4247;
+    border-bottom:2px dashed #3a4247;
+  }
+  #qrcanvas{background:#fff;padding:10px;border-radius:2px;}
+  .qr-timer{font-size:11px;color:#8a9a83;font-family:var(--font-mono);letter-spacing:.4px;}
+  .qr-timer b{color:var(--signal);font-size:13px;}
+  .qr-controls{margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+  .ticket-label{font-family:var(--font-mono);font-size:10px;color:#6b746e;letter-spacing:1.5px;text-align:center;text-transform:uppercase;}
+
+  select,input[type=text],input[type=number]{
+    padding:9px 10px;border:1px solid var(--line);border-radius:2px;font-size:13.5px;background:#fff;color:var(--text);font-family:var(--font-body);
+  }
+  select:focus,input:focus,button:focus-visible{outline:2px solid var(--signal);outline-offset:1px;}
+  button.btn{
+    padding:9px 16px;border-radius:2px;border:1px solid var(--ink);background:var(--ink);color:#fff;font-size:12.5px;cursor:pointer;font-weight:600;
+    font-family:var(--font-body);letter-spacing:.2px;
+  }
+  button.btn.primary{background:var(--signal);border-color:var(--signal);color:#221100;}
+  button.btn.danger{background:var(--danger);border-color:var(--danger);}
+  button.btn.ghost{background:#fff;border:1px solid var(--line);color:var(--text);}
+  button.btn:disabled{opacity:.45;cursor:not-allowed;}
+  button.btn:hover:not(:disabled){filter:brightness(1.08);}
+
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th{background:var(--paper);text-align:left;padding:9px 10px;color:var(--ink);font-weight:600;font-size:10.5px;border-bottom:2px solid var(--ink);font-family:var(--font-mono);letter-spacing:.6px;text-transform:uppercase;}
+  td{padding:9px 10px;border-bottom:1px solid var(--line-soft);}
+  tr:hover td{background:#fafaf7;}
+
+  .badge{padding:3px 9px;border-radius:2px;font-size:10.5px;font-weight:700;display:inline-block;font-family:var(--font-mono);letter-spacing:.3px;text-transform:uppercase;}
+  .b-ok{background:var(--ok-bg);color:var(--ok);}
+  .b-warn{background:var(--warn-bg);color:var(--warn);}
+  .b-bad{background:var(--danger-bg);color:var(--danger);}
+  .b-info{background:var(--info-bg);color:var(--info);}
+  .b-muted{background:var(--paper);color:var(--muted);}
+
+  .alert{border-radius:2px;padding:10px 12px;margin-bottom:8px;font-size:12.8px;border-left:3px solid;}
+  .alert.crit{background:var(--danger-bg);border-color:var(--danger);color:#6b2119;}
+  .alert.warn{background:var(--warn-bg);border-color:var(--warn);color:#6b4a10;}
+  .alert.ok{background:var(--ok-bg);border-color:var(--ok);color:#274a24;}
+
+  .toast{
+    position:fixed;bottom:22px;right:22px;background:var(--ink);color:#fff;padding:13px 18px;border-radius:2px;
+    font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.3);z-index:100;display:flex;gap:10px;align-items:center;
+    max-width:340px;border-left:3px solid var(--signal);font-family:var(--font-body);
+  }
+  .toast.err{border-left-color:var(--danger);}
+  .toast.warnc{border-left-color:var(--warn);}
+
+  .search-results{border:1px solid var(--line);border-radius:2px;margin-top:6px;max-height:180px;overflow-y:auto;}
+  .search-results div{padding:8px 10px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--line-soft);}
+  .search-results div:hover{background:var(--paper);}
+
+  .foot{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);font-size:11px;color:var(--muted);display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;font-family:var(--font-mono);}
+  .pill-mini{background:var(--ink);color:#e8e4d8;padding:2px 8px;border-radius:2px;font-size:10px;font-weight:600;letter-spacing:.4px;}
+  .flexbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;}
+  .hint{font-size:11.5px;color:var(--muted);margin-top:8px;font-family:var(--font-mono);line-height:1.6;}
+  .readonly-name{padding:9px 10px;border:1px solid var(--line);border-radius:2px;background:var(--paper);color:var(--text);font-size:13.5px;}
+  label{font-size:10.5px;color:var(--muted);font-weight:600;display:block;margin-bottom:5px;margin-top:12px;font-family:var(--font-mono);letter-spacing:.6px;text-transform:uppercase;}
+  .bar-track{background:var(--paper);border-radius:2px;height:7px;width:100%;overflow:hidden;margin-top:5px;}
+  .bar-fill{height:100%;}
+  .dropzone{border:1px dashed var(--line);border-radius:2px;padding:26px;text-align:center;color:var(--muted);font-size:13px;}
+  .dropzone:hover{border-color:var(--signal);color:var(--signal);}
+
+  .stat-card{display:flex;align-items:flex-start;gap:12px;}
+  .stat-icon{width:34px;height:34px;border-radius:2px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:15px;}
+
+  .section-desc{font-size:12.5px;color:var(--muted);margin:-8px 0 16px 0;line-height:1.55;max-width:640px;}
+  .card-head{display:flex;align-items:center;gap:9px;margin-bottom:4px;}
+  .card-head .dotcolor{width:8px;height:8px;background:var(--signal);flex-shrink:0;}
+
+  .steps-row{display:flex;gap:0;margin-bottom:18px;flex-wrap:wrap;border:1px solid var(--line);}
+  .step-chip{flex:1;min-width:150px;background:var(--card);padding:12px 14px;font-size:12px;color:var(--text);display:flex;gap:10px;align-items:flex-start;border-right:1px solid var(--line);}
+  .step-chip:last-child{border-right:none;}
+  .step-chip b.num{background:var(--ink);color:var(--signal);width:20px;height:20px;border-radius:2px;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;font-family:var(--font-mono);}
+  .step-chip.done{background:var(--ok-bg);}
+  .step-chip.done b.num{background:var(--ok);color:#fff;}
+
+  .guide-banner{background:var(--ink);color:#e8e4d8;border-radius:var(--radius);padding:18px 22px;margin-bottom:20px;position:relative;border-left:4px solid var(--signal);}
+  .guide-banner h4{font-family:var(--font-display);font-size:17px;margin:0 0 10px 0;text-transform:uppercase;letter-spacing:.4px;font-weight:700;}
+  .guide-banner ol{margin:0;padding-left:18px;font-size:12.6px;line-height:1.85;color:#c6c2b6;}
+  .guide-banner .close-guide{position:absolute;top:12px;right:14px;background:none;border:none;color:#8b9089;font-size:16px;cursor:pointer;font-family:var(--font-mono);}
+
+  .help-fab{
+    position:fixed;bottom:22px;left:22px;width:44px;height:44px;border-radius:2px;background:var(--ink);
+    color:var(--signal);border:2px solid var(--signal);font-size:17px;cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.25);z-index:90;
+    display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-weight:700;
+  }
+  .help-fab:hover{background:var(--signal);color:var(--ink);}
+  .modal-overlay{position:fixed;inset:0;background:rgba(15,18,15,.6);display:none;align-items:center;justify-content:center;z-index:200;padding:20px;}
+  .modal-overlay.open{display:flex;}
+  .modal-box{background:#fff;border-radius:2px;max-width:560px;width:100%;max-height:85vh;overflow-y:auto;padding:26px 28px;border-top:4px solid var(--signal);}
+  .modal-box h2{font-size:19px;margin-bottom:6px;}
+  .modal-box .modal-sub{font-size:12px;color:var(--muted);margin-bottom:18px;font-family:var(--font-mono);}
+  .modal-box .step{display:flex;gap:12px;margin-bottom:16px;}
+  .modal-box .step .n{width:24px;height:24px;border-radius:2px;background:var(--ink);color:var(--signal);font-weight:700;font-size:11.5px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:var(--font-mono);}
+  .modal-box .step .t{font-size:13.5px;line-height:1.5;}
+  .modal-box .step .t b{display:block;margin-bottom:2px;color:var(--ink);font-family:var(--font-display);text-transform:uppercase;letter-spacing:.3px;}
+  .modal-close-btn{margin-top:10px;}
+
+  .empty-state{border:1px dashed var(--line);border-radius:2px;padding:32px 20px;text-align:center;color:var(--muted);}
+  .empty-state .es-icon{font-size:26px;margin-bottom:8px;opacity:.6;}
+  .empty-state b{color:var(--ink);display:block;margin-bottom:4px;font-family:var(--font-display);text-transform:uppercase;letter-spacing:.3px;font-size:14px;}
+  .empty-state p{font-size:12.5px;margin:0;max-width:360px;margin-left:auto;margin-right:auto;line-height:1.6;}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="logo">SOA</div>
+    <div class="titles">
+      <b>SOA-QR</b>
+      <span>SOFIA PLUS · CONTROL DE FICHAJE</span>
+    </div>
+  </div>
+  <div class="top-right">
+    <div class="session-pill"><span class="dot"></span> <span id="pillSesion">Sesión — · sin ficha</span></div>
+    <div>Instructor: <b id="pillInstructor">Carlos Mendoza</b></div>
+    <div class="avatar">CM</div>
+  </div>
+</header>
+
+<div class="layout">
+  <nav class="sidebar">
+    <div class="divider-label">REGISTRO</div>
+    <button class="active" data-tab="scan" onclick="showTab('scan')" title="Registra asistencia escaneando el QR del aprendiz">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM19 14h2M14 19h2M19 19h2"/></svg>
+      <span class="navtext">Escanear Asistencia</span>
+    </button>
+    <button data-tab="manual" onclick="showTab('manual')" title="Registra buscando solo por número de documento">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+      <span class="navtext">Registro Manual</span>
+    </button>
+    <div class="divider-label">CONSULTA</div>
+    <button data-tab="list" onclick="showTab('list')" title="Consulta y filtra todos los registros de la sesión">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+      <span class="navtext">Listado de Asistencia</span>
+    </button>
+    <button data-tab="analytics" onclick="showTab('analytics')" title="Revisa el porcentaje de riesgo de cada aprendiz">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="6"/><rect x="12" y="8" width="3" height="10"/><rect x="17" y="5" width="3" height="13"/></svg>
+      <span class="navtext">Analítica y Alertas</span>
+    </button>
+    <button data-tab="export" onclick="showTab('export')" title="Descarga el reporte de la sesión en CSV">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 17v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
+      <span class="navtext">Exportar Reportes</span>
+    </button>
+    <div class="divider-label">FICHA</div>
+    <button data-tab="load" onclick="showTab('load')" title="Importa la lista de aprendices desde un CSV">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V9m0 0 4 4m-4-4-4 4M4 7V4a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v3"/></svg>
+      <span class="navtext">Cargar Ficha</span>
+    </button>
+    <button data-tab="gestion" onclick="showTab('gestion')" title="Agrega o elimina aprendices de la ficha uno por uno">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg>
+      <span class="navtext">Gestión de Aprendices</span>
+    </button>
+    <button data-tab="audit" onclick="showTab('audit')" title="Consulta la bitácora de todas las acciones">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/></svg>
+      <span class="navtext">Auditoría</span>
+    </button>
+  </nav>
+
+  <main>
+    <div class="guide-banner" id="guideBanner">
+      <button class="close-guide" onclick="document.getElementById('guideBanner').style.display='none'" title="Cerrar guía">[X]</button>
+      <h4>Ficha vacía — empieza por aquí</h4>
+      <ol>
+        <li>Ve a <b>Cargar Ficha</b> e importa tu lista de aprendices desde un CSV (documento, nombre, apellido), o agrégalos uno por uno en <b>Gestión de Aprendices</b>.</li>
+        <li>Con al menos un aprendiz cargado, entra a <b>Escanear Asistencia</b> para generar su QR de prueba, o usa <b>Registro Manual</b> si prefieres buscar por documento.</li>
+        <li>Todo lo que registres se refleja al instante en <b>Listado</b>, <b>Analítica</b> y queda escrito en <b>Auditoría</b>.</li>
+      </ol>
+    </div>
+    <div class="stat-row" id="statRow"></div>
+
+    <!-- ESCANEAR -->
+    <section class="section active" id="tab-scan">
+      <div class="steps-row">
+        <div class="step-chip"><b class="num">1</b> Carga al menos un aprendiz en la ficha (pestaña "Cargar Ficha" o "Gestión de Aprendices").</div>
+        <div class="step-chip"><b class="num">2</b> Elige al aprendiz que "presenta" su QR en el selector de abajo.</div>
+        <div class="step-chip"><b class="num">3</b> Da clic en <b>"Simular escaneo"</b> antes de que el contador llegue a 0.</div>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-head"><span class="dotcolor"></span><h3>Ficha de Escaneo <span class="small muted" style="text-transform:none;font-family:var(--font-body);">(TOTP · 30 s)</span></h3></div>
+          <p class="section-desc">Este código cambia cada 30 segundos y lleva una firma digital, así nadie puede reutilizarlo ni falsificarlo.</p>
+          <div class="qr-box">
+            <div class="ticket-label">soa-qr · ficha de control</div>
+            <div id="qrcanvas"></div>
+            <div class="qr-timer">EXPIRA EN <b id="qrCountdown">30</b> S · APRENDIZ DE DEMOSTRACIÓN</div>
+          </div>
+          <div class="qr-controls">
+            <select id="demoAprendiz" onchange="regenerateToken()"></select>
+            <button class="btn primary" onclick="simulateScan()">▶ Simular escaneo</button>
+            <button class="btn ghost" onclick="regenerateToken()">↻ Nuevo QR</button>
+          </div>
+          <p class="hint">En producción este QR lo genera la app móvil del aprendiz; aquí se simula el contenido firmado (documento, sesión, timestamp, nonce y firma SHA-256) para probar el flujo completo de validación.</p>
+        </div>
+        <div class="card">
+          <div class="card-head"><span class="dotcolor"></span><h3>Registros recientes</h3></div>
+          <p class="section-desc">Los últimos aprendices registrados en esta sesión, del más nuevo al más antiguo.</p>
+          <div id="recentList"></div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:18px;">
+        <div class="card-head"><span class="dotcolor"></span><h3>Cámara del Instructor <span class="small muted" style="text-transform:none;font-family:var(--font-body);">(lectura real de QR)</span></h3></div>
+        <p class="section-desc">Esta es la lectura real: activa la cámara del dispositivo y apunta al QR generado por la app del aprendiz (o al QR de demostración de la izquierda, mostrándolo en otra pantalla). Al detectarlo, valida la firma y registra la asistencia automáticamente.</p>
+        <div id="cameraReader" style="max-width:400px;border-radius:2px;"></div>
+        <div class="qr-controls">
+          <button class="btn primary" id="btnStartCam" onclick="startCameraScanner()">Mostrar lector de cámara</button>
+          <button class="btn ghost" id="btnStopCam" onclick="stopCameraScanner()" disabled>Ocultar lector</button>
+          <span class="small muted" id="cameraStatus" style="font-family:var(--font-mono);">Lector oculto</span>
+        </div>
+        <p class="hint">Al mostrar el lector, la librería pedirá permiso de cámara y te dejará elegir el dispositivo (frontal/trasera) si hay más de una. Requiere que la página se sirva por HTTPS o desde localhost — abrir el archivo con doble clic (file://) bloquea la cámara por seguridad del navegador. Si el equipo no tiene cámara, usa "Registro Manual".</p>
+      </div>
+    </section>
+
+    <!-- MANUAL -->
+    <section class="section" id="tab-manual">
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-head"><span class="dotcolor"></span><h3>Registro Manual por Documento</h3></div>
+          <p class="section-desc">Úsalo cuando el escáner falla o el aprendiz no tiene su QR a la mano. Solo se busca por número de documento — el nombre nunca se escribe a mano.</p>
+          <label>Documento de identidad</label>
+          <input type="text" id="manualSearch" placeholder="Ej: 1023456789" oninput="searchAprendiz()" style="width:100%">
+          <div class="search-results" id="manualResults"></div>
+
+          <div id="manualForm" style="display:none;margin-top:16px;border-top:1px solid var(--line);padding-top:14px;">
+            <label>Nombre (autocompletado, solo lectura)</label>
+            <div class="readonly-name" id="manualName">—</div>
+            <label>Estado a registrar</label>
+            <select id="manualEstado">
+              <option value="Asistió">Asistió</option>
+              <option value="Retardo">Retardo</option>
+              <option value="Falta Justificada">Falta Justificada</option>
+            </select>
+            <div style="margin-top:14px;">
+              <button class="btn primary" onclick="registerManual()">Registrar asistencia</button>
+            </div>
+          </div>
+          <p class="hint">RN-04: la búsqueda es siempre por documento de identidad. El nombre nunca se digita a mano, por lo que se eliminan errores de digitación y suplantación de identidad.</p>
+        </div>
+        <div class="card">
+          <div class="card-head"><span class="dotcolor"></span><h3>Estado de la sesión</h3></div>
+          <p class="section-desc">Información general de la ficha y la sesión activa en este momento.</p>
+          <table>
+            <tr><td class="muted">Ficha</td><td><b id="infoFicha"></b></td></tr>
+            <tr><td class="muted">Programa</td><td><b id="infoPrograma"></b></td></tr>
+            <tr><td class="muted">Fecha</td><td><b id="infoFecha"></b></td></tr>
+            <tr><td class="muted">Instructor</td><td><b id="infoInstructor"></b></td></tr>
+            <tr><td class="muted">Estado</td><td><span class="badge b-ok">ACTIVA</span></td></tr>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- LISTADO -->
+    <section class="section" id="tab-list">
+      <div class="card">
+        <div class="flexbar">
+          <div>
+            <div class="card-head" style="margin-bottom:2px;"><span class="dotcolor"></span><h3 style="margin:0">Listado de Asistencia · Sesión Actual</h3></div>
+            <p class="section-desc" style="margin:2px 0 0 0;">Aquí ves a todos los aprendices de la ficha: los que aún no tienen registro aparecen como "Falta".</p>
+          </div>
+          <select id="filterEstado" onchange="renderListado()">
+            <option value="">Todos los estados</option>
+            <option value="Asistió">Asistió</option>
+            <option value="Retardo">Retardo</option>
+            <option value="Falta">Falta</option>
+            <option value="Falta Justificada">Falta Justificada</option>
+            <option value="Pendiente de Verificación">Pendiente de Verificación</option>
+          </select>
+        </div>
+        <table>
+          <thead><tr><th>#</th><th>Documento</th><th>Aprendiz</th><th>Entrada</th><th>Tipo</th><th>Estado</th><th>Acciones</th></tr></thead>
+          <tbody id="listadoBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ANALITICA -->
+    <section class="section" id="tab-analytics">
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-head"><span class="dotcolor"></span><h3>Riesgo de inasistencia por aprendiz</h3></div>
+          <p class="section-desc">Verde = va bien · Naranja = 10-20% de inasistencia, hay que hablar con el aprendiz · Rojo = más de 20%, riesgo de perder el programa.</p>
+          <div id="riskBars"></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><span class="dotcolor"></span><h3>Alertas de riesgo</h3></div>
+          <p class="section-desc">Lista priorizada de quiénes necesitan seguimiento cercano.</p>
+          <div id="alertsBox"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- EXPORTAR -->
+    <section class="section" id="tab-export">
+      <div class="card">
+        <h3>Exportación de Reportes (RF-06 / RN-10)</h3>
+        <p class="small muted">Genera un archivo CSV homologado con la lista de asistencia de la sesión actual, incluyendo hash de integridad y firma simulada, listo para importar en SOFIA Plus.</p>
+        <button class="btn primary" onclick="exportCSV()">Descargar CSV de la sesión</button>
+        <div id="exportInfo" class="hint"></div>
+      </div>
+    </section>
+
+    <!-- CARGAR FICHA -->
+    <section class="section" id="tab-load">
+      <div class="card">
+        <h3>Carga de Fichas (RF-01)</h3>
+        <p class="small muted">Importa aprendices desde un archivo CSV con columnas: <b>documento,nombre,apellido</b>. Los documentos duplicados se ignoran.</p>
+        <input type="file" id="fileInput" accept=".csv" onchange="handleFile(event)">
+        <div class="hint">También puedes pegar el contenido CSV directamente:</div>
+        <textarea id="csvPaste" rows="5" style="width:100%;margin-top:8px;padding:10px;border-radius:2px;border:1px solid var(--line);font-family:var(--font-mono);font-size:12.5px;" placeholder="documento,nombre,apellido
+1000000001,Ana,Ramirez"></textarea>
+        <div style="margin-top:10px;"><button class="btn primary" onclick="importPasted()">Importar texto pegado</button></div>
+        <div id="loadResult" class="hint"></div>
+      </div>
+    </section>
+
+    <!-- GESTIÓN DE APRENDICES -->
+    <section class="section" id="tab-gestion">
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-head"><span class="dotcolor"></span><h3>Agregar aprendiz a la ficha</h3></div>
+          <p class="section-desc">Da de alta un aprendiz de forma individual (sin necesidad de CSV). El documento debe ser único dentro de la ficha.</p>
+          <label>Documento de identidad</label>
+          <input type="text" id="nuevoDocumento" placeholder="Ej: 1099887766" style="width:100%">
+          <label>Nombre completo</label>
+          <input type="text" id="nuevoNombre" placeholder="Ej: Camila Restrepo" style="width:100%">
+          <div style="margin-top:14px;">
+            <button class="btn primary" onclick="agregarAprendizManual()">+ Agregar aprendiz</button>
+          </div>
+          <div id="gestionMsg" class="hint"></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><span class="dotcolor"></span><h3>Aprendices en la ficha (<span id="totalGestion">0</span>)</h3></div>
+          <p class="section-desc">Eliminar un aprendiz borra también su registro de asistencia y su historial de riesgo en esta demo.</p>
+          <table>
+            <thead><tr><th>Documento</th><th>Nombre</th><th>Acciones</th></tr></thead>
+            <tbody id="gestionBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- AUDITORIA -->
+    <section class="section" id="tab-audit">
+      <div class="card">
+        <h3>Bitácora de Auditoría (RN-06)</h3>
+        <table>
+          <thead><tr><th>Fecha / hora</th><th>Usuario</th><th>Acción</th><th>Detalle</th></tr></thead>
+          <tbody id="auditBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <div class="foot">
+      <span>SOA-QR v1.0 · DEMO FUNCIONAL CLIENTE · SENA</span>
+      <span><span class="pill-mini">TLS 1.3 (SIMULADO)</span> <span class="pill-mini">SHA-256</span> <span class="pill-mini">MODO OFFLINE NO ACTIVO</span></span>
+    </div>
+  </main>
+</div>
+
+<div id="toastHost"></div>
+
+<button class="help-fab" onclick="document.getElementById('helpModal').classList.add('open')" title="¿Cómo funciona?">?</button>
+
+<div class="modal-overlay" id="helpModal">
+  <div class="modal-box">
+    <h2>¿Cómo funciona SOA-QR?</h2>
+    <p class="modal-sub">GUÍA RÁPIDA DE LAS 7 SECCIONES DEL PANEL LATERAL</p>
+
+    <div class="step"><div class="n">1</div><div class="t"><b>Escanear Asistencia</b>Elige un aprendiz, espera o escanea su QR (vigente 30 s) y da clic en "Simular escaneo", o activa la "Cámara del Instructor" para leer un QR real con la cámara del dispositivo.</div></div>
+    <div class="step"><div class="n">2</div><div class="t"><b>Registro Manual</b>Si el QR falla, busca al aprendiz solo por documento — el nombre aparece solo, así se evita la suplantación.</div></div>
+    <div class="step"><div class="n">3</div><div class="t"><b>Listado de Asistencia</b>Tabla completa de la sesión: quién asistió, llegó tarde o falta. Puedes filtrar y corregir un estado con "Editar".</div></div>
+    <div class="step"><div class="n">4</div><div class="t"><b>Analítica y Alertas</b>Muestra qué aprendices tienen mayor riesgo de inasistencia (naranja = advertencia, rojo = crítico).</div></div>
+    <div class="step"><div class="n">5</div><div class="t"><b>Exportar Reportes</b>Descarga un CSV de la sesión con un hash de verificación, listo para SOFIA Plus.</div></div>
+    <div class="step"><div class="n">6</div><div class="t"><b>Cargar Ficha</b>Sube o pega un CSV con más aprendices (documento, nombre, apellido) para agregarlos a la ficha.</div></div>
+    <div class="step"><div class="n">7</div><div class="t"><b>Auditoría</b>Registro cronológico de todo lo que ha pasado: quién hizo qué y cuándo.</div></div>
+
+    <button class="btn primary modal-close-btn" onclick="document.getElementById('helpModal').classList.remove('open')">Entendido</button>
+  </div>
+</div>
+
+<script>
+/* ---------------- ESTADO ---------------- */
+const INSTRUCTOR = "Carlos Mendoza";
+const SECRET = "SOAQR-DEMO-SECRET"; // en producción vive solo en el backend
+const TOKEN_TTL = 30; // segundos
+
+const ficha = { id:"2876091", programa:"ADSI", jornada:"Mixta", fecha_inicio:"2026-06-01", fecha_fin:"2026-12-15" };
+const sesionActual = { id: "SES-"+Date.now().toString().slice(-6), ficha: ficha.id, fecha: new Date().toLocaleDateString('es-CO'), hora_inicio:"08:00 AM", hora_fin:"12:00 PM", estado:"ACTIVA" };
+
+// Ficha vacía a propósito: carga tus propios aprendices desde "Cargar Ficha"
+// (CSV) o desde "Gestión de Aprendices" (alta individual).
+let aprendices = [];
+
+// % de inasistencia histórica simulada, usada por el módulo de analítica/alertas.
+// Se completa automáticamente (valor aleatorio bajo) cada vez que agregas un aprendiz.
+let historial = {};
+
+let asistencias = []; // {documento, hora, tipo, estado, hash}
+let auditoria = [];
+let currentToken = null;
+let countdownHandle = null;
+
+/* ---------------- UTILIDADES ---------------- */
+async function sha256(str){
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
+}
+function nowStr(){ return new Date().toLocaleTimeString('es-CO'); }
+function log(accion, detalle){
+  auditoria.unshift({fecha: new Date().toLocaleString('es-CO'), usuario: INSTRUCTOR, accion, detalle});
+  renderAuditoria();
+}
+function toast(msg, type=""){
+  const host = document.getElementById("toastHost");
+  const el = document.createElement("div");
+  el.className = "toast "+type;
+  el.textContent = msg;
+  host.appendChild(el);
+  setTimeout(()=>el.remove(), 3600);
+}
+function aprendizPorDoc(doc){ return aprendices.find(a=>a.documento===doc); }
+function asistenciaPorDoc(doc){ return asistencias.find(a=>a.documento===doc); }
+
+/* ---------------- NAVEGACIÓN ---------------- */
+function showTab(tab){
+  document.querySelectorAll(".section").forEach(s=>s.classList.remove("active"));
+  document.getElementById("tab-"+tab).classList.add("active");
+  document.querySelectorAll(".sidebar button").forEach(b=>b.classList.toggle("active", b.dataset.tab===tab));
+  if(tab==="list") renderListado();
+  if(tab==="analytics") renderAnalytics();
+  if(tab==="audit") renderAuditoria();
+  if(tab==="gestion") renderGestion();
+  if(tab!=="scan" && camaraActiva) stopCameraScanner(); // libera la cámara al salir de la sección
+}
+
+/* ---------------- QR / ESCANEO ---------------- */
+function fillDemoSelect(){
+  const sel = document.getElementById("demoAprendiz");
+  if(!aprendices.length){
+    sel.innerHTML = `<option value="">— Carga aprendices primero —</option>`;
+    sel.disabled = true;
+    return;
+  }
+  sel.disabled = false;
+  sel.innerHTML = aprendices.map(a=>`<option value="${a.documento}">${a.nombre} · CC ${a.documento}</option>`).join("");
+}
+
+async function regenerateToken(){
+  if(!aprendices.length){
+    clearInterval(countdownHandle);
+    document.getElementById("qrcanvas").innerHTML = '<div style="width:190px;height:190px;display:flex;align-items:center;justify-content:center;color:#999;font-size:12px;text-align:center;padding:10px;">Carga aprendices en "Cargar Ficha" o "Gestión de Aprendices" para generar un QR</div>';
+    document.getElementById("qrCountdown").textContent = "--";
+    currentToken = null;
+    return;
+  }
+  const doc = document.getElementById("demoAprendiz").value || aprendices[0].documento;
+  const ts = Date.now();
+  const nonce = Math.random().toString(36).slice(2,10);
+  const payload = `${doc}|${sesionActual.id}|${ts}|${nonce}|${SECRET}`;
+  const sig = await sha256(payload);
+  currentToken = {documento:doc, sesion:sesionActual.id, ts, nonce, sig};
+
+  const qrDiv = document.getElementById("qrcanvas");
+  qrDiv.innerHTML = "";
+  const payloadStr = JSON.stringify({d:doc, s:sesionActual.id, t:ts, n:nonce, f:sig.slice(0,20)});
+  try{
+    new QRCode(qrDiv, {text: payloadStr, width:190, height:190, colorDark:"#171b1e", colorLight:"#ffffff"});
+  }catch(e){
+    qrDiv.innerHTML = '<div style="width:190px;height:190px;display:flex;align-items:center;justify-content:center;color:#999;font-size:12px;">QR no disponible</div>';
+  }
+  startCountdown();
+}
+
+function startCountdown(){
+  clearInterval(countdownHandle);
+  let remaining = TOKEN_TTL;
+  document.getElementById("qrCountdown").textContent = remaining;
+  countdownHandle = setInterval(()=>{
+    remaining--;
+    if(remaining<=0){ regenerateToken(); return; }
+    document.getElementById("qrCountdown").textContent = remaining;
+  },1000);
+}
+
+/**
+ * Valida un payload de QR (documento, sesión, timestamp, nonce y firma truncada a 20
+ * caracteres, tal como se codifica en el propio QR) y registra la asistencia si es válido.
+ * Se usa tanto por el botón "Simular escaneo" como por la cámara real (RF-02, RN-01 a RN-03).
+ * @param {{documento:string, sesion:string, ts:number, nonce:string, sigTrunc:string}} datos
+ * @param {"QR"|"QR-Cámara"} tipoRegistro
+ */
+async function validarYRegistrarQR(datos, tipoRegistro){
+  const {documento, sesion, ts, nonce, sigTrunc} = datos;
+  const age = (Date.now() - ts)/1000;
+
+  if(sesion !== sesionActual.id || sesionActual.estado !== "ACTIVA"){
+    toast("Sesión no válida o inactiva","err"); log("Registro QR rechazado","Sesión no activa"); return false;
+  }
+  if(!aprendizPorDoc(documento)){
+    toast("Aprendiz no pertenece a la ficha","err"); log("Registro QR rechazado","Ficha no coincide"); return false;
+  }
+  if(age > TOKEN_TTL || age < -5){
+    toast("QR expirado o inválido, genera uno nuevo","warnc"); log("Registro QR rechazado","QR expirado (A3)"); return false;
+  }
+  const expectedPayload = `${documento}|${sesion}|${ts}|${nonce}|${SECRET}`;
+  const expectedSigTrunc = (await sha256(expectedPayload)).slice(0,20);
+  if(expectedSigTrunc !== sigTrunc){
+    toast("Firma inválida — posible fraude","err"); log("¡FRAUDE DETECTADO!","Firma digital no coincide (A4)"); return false;
+  }
+  if(asistenciaPorDoc(documento)){
+    toast("Ya existe un registro para este aprendiz en esta sesión","warnc"); log("Registro duplicado rechazado", `Documento ${documento} (A1)`); return false;
+  }
+
+  const hash = await sha256(documento+sesion+Date.now());
+  asistencias.push({documento, hora: nowStr(), tipo: tipoRegistro, estado:"Asistió", hash});
+  log(`Registro por ${tipoRegistro}`, `${aprendizPorDoc(documento).nombre} (CC ${documento})`);
+  toast("Asistencia registrada ✓");
+  renderAll();
+  return true;
+}
+
+async function simulateScan(){
+  if(!aprendices.length){ toast("Carga aprendices en la ficha primero","warnc"); return; }
+  if(!currentToken){ toast("Genera un código QR primero","warnc"); return; }
+  const ok = await validarYRegistrarQR({
+    documento: currentToken.documento, sesion: currentToken.sesion,
+    ts: currentToken.ts, nonce: currentToken.nonce, sigTrunc: currentToken.sig.slice(0,20)
+  }, "QR");
+  if(ok) regenerateToken();
+}
+
+/* ---- Lectura real de QR con la cámara del dispositivo (RF-02) ----
+   Se usa Html5QrcodeScanner (no Html5Qrcode.start manual): trae su propia UI con
+   selector de cámara, manejo de permisos y mensajes de error visibles, lo cual es
+   mucho más robusto ante distintos dispositivos/navegadores. */
+let html5QrcodeScanner = null;
+let camaraActiva = false;
+let ultimaLecturaTexto = null;
+let ultimaLecturaTs = 0;
+
+function startCameraScanner(){
+  if(camaraActiva) return;
+  if(typeof Html5QrcodeScanner === "undefined"){
+    toast("No se pudo cargar la librería de cámara (revisa tu conexión a internet)","err");
+    return;
+  }
+  // Aviso temprano: getUserMedia exige contexto seguro (https:// o http://localhost).
+  if(location.protocol !== "https:" && location.hostname !== "localhost" && location.hostname !== "127.0.0.1"){
+    toast("La cámara requiere HTTPS o localhost. Abrir el archivo con doble clic (file://) no funciona.","err");
+    document.getElementById("cameraStatus").textContent = "Bloqueado: sirve el archivo por HTTPS o localhost";
+    return;
+  }
+
+  html5QrcodeScanner = new Html5QrcodeScanner(
+    "cameraReader",
+    { fps: 10, qrbox: { width: 220, height: 220 }, rememberLastUsedCamera: true },
+    /* verbose= */ false
+  );
+  html5QrcodeScanner.render(onCameraScanSuccess, onCameraScanError);
+  camaraActiva = true;
+  document.getElementById("btnStartCam").disabled = true;
+  document.getElementById("btnStopCam").disabled = false;
+  document.getElementById("cameraStatus").textContent = "Lector visible · concede el permiso de cámara si te lo pide";
+}
+
+function stopCameraScanner(){
+  if(!camaraActiva || !html5QrcodeScanner) return;
+  html5QrcodeScanner.clear()
+    .then(()=>{ html5QrcodeScanner = null; })
+    .catch(()=>{ html5QrcodeScanner = null; });
+  camaraActiva = false;
+  document.getElementById("btnStartCam").disabled = false;
+  document.getElementById("btnStopCam").disabled = true;
+  document.getElementById("cameraStatus").textContent = "Lector oculto";
+}
+
+// Llamado en cada frame donde NO se detecta QR; lo dejamos silencioso a propósito.
+function onCameraScanError(_errorMessage){ /* ruido normal mientras no hay QR en cuadro */ }
+
+async function onCameraScanSuccess(decodedText){
+  // evita procesar el mismo frame/QR repetidas veces mientras sigue en cuadro
+  const ahora = Date.now();
+  if(decodedText === ultimaLecturaTexto && (ahora - ultimaLecturaTs) < 4000) return;
+  ultimaLecturaTexto = decodedText; ultimaLecturaTs = ahora;
+
+  let data;
+  try{ data = JSON.parse(decodedText); }
+  catch(e){ toast("El código QR leído no tiene un formato válido","err"); log("Registro QR rechazado","Payload no es JSON válido"); return; }
+
+  if(!data.d || !data.s || !data.t || !data.n || !data.f){
+    toast("El código QR leído está incompleto","err"); log("Registro QR rechazado","Payload incompleto"); return;
+  }
+  await validarYRegistrarQR({documento: data.d, sesion: data.s, ts: data.t, nonce: data.n, sigTrunc: data.f}, "QR-Cámara");
+}
+
+/* ---------------- REGISTRO MANUAL ---------------- */
+let manualSelected = null;
+function searchAprendiz(){
+  const q = document.getElementById("manualSearch").value.trim();
+  const box = document.getElementById("manualResults");
+  document.getElementById("manualForm").style.display="none";
+  manualSelected = null;
+  if(!q){ box.innerHTML=""; return; }
+  const matches = aprendices.filter(a=>a.documento.startsWith(q)).slice(0,6);
+  if(matches.length===0){ box.innerHTML = '<div class="small muted" style="padding:8px;">Sin coincidencias</div>'; return; }
+  box.innerHTML = matches.map(a=>`<div onclick="selectManual('${a.documento}')">${a.nombre} · CC ${a.documento}</div>`).join("");
+}
+function selectManual(doc){
+  manualSelected = aprendizPorDoc(doc);
+  document.getElementById("manualName").textContent = manualSelected.nombre + " · CC " + manualSelected.documento;
+  document.getElementById("manualForm").style.display="block";
+  document.getElementById("manualResults").innerHTML="";
+}
+async function registerManual(){
+  if(!manualSelected) return;
+  if(asistenciaPorDoc(manualSelected.documento)){
+    toast("Este aprendiz ya tiene un registro en la sesión","warnc");
+    log("Registro manual rechazado", `Duplicado: ${manualSelected.documento}`);
+    return;
+  }
+  const estado = document.getElementById("manualEstado").value;
+  const hash = await sha256(manualSelected.documento+sesionActual.id+Date.now());
+  asistencias.push({documento: manualSelected.documento, hora: nowStr(), tipo:"Manual", estado, hash});
+  log("Registro manual", `${manualSelected.nombre} → ${estado} (RN-04)`);
+  toast("Registro manual guardado ✓");
+  document.getElementById("manualSearch").value="";
+  document.getElementById("manualForm").style.display="none";
+  manualSelected = null;
+  renderAll();
+}
+
+/* ---------------- LISTADO ---------------- */
+function renderListado(){
+  const filtro = document.getElementById("filterEstado").value;
+  const tbody = document.getElementById("listadoBody");
+  if(!aprendices.length){
+    tbody.innerHTML = `<tr><td colspan="7" style="padding:0;border:none;"><div class="empty-state"><div class="es-icon">▢</div><b>Ficha sin aprendices</b><p>Importa un CSV en "Cargar Ficha" o agrega aprendices uno por uno en "Gestión de Aprendices" para empezar a registrar asistencia.</p></div></td></tr>`;
+    return;
+  }
+  const rows = aprendices.map(a=>{
+    const r = asistenciaPorDoc(a.documento);
+    return { documento:a.documento, nombre:a.nombre,
+      hora: r? r.hora : "--:--:--", tipo: r? r.tipo : "--", estado: r? r.estado : "Falta" };
+  }).filter(r => !filtro || r.estado===filtro);
+
+  tbody.innerHTML = rows.map((r,i)=>`
+    <tr>
+      <td>${i+1}</td><td>${r.documento}</td><td><b>${r.nombre.toUpperCase()}</b></td>
+      <td>${r.hora}</td>
+      <td>${r.tipo==="--"?'<span class="badge b-muted">--</span>':`<span class="badge b-info">${r.tipo}</span>`}</td>
+      <td>${estadoBadge(r.estado)}</td>
+      <td><a href="javascript:void(0)" onclick="editEstado('${r.documento}')" style="color:var(--signal);font-weight:600;">Editar</a></td>
+    </tr>`).join("") || `<tr><td colspan="7" class="muted" style="text-align:center;padding:20px;">Sin registros para este filtro</td></tr>`;
+}
+function estadoBadge(estado){
+  const map = {"Asistió":"b-ok","Retardo":"b-warn","Falta":"b-bad","Falta Justificada":"b-info","Pendiente de Verificación":"b-muted"};
+  return `<span class="badge ${map[estado]||'b-muted'}">${estado}</span>`;
+}
+function editEstado(doc){
+  const nuevo = prompt("Nuevo estado (Asistió / Retardo / Falta / Falta Justificada):");
+  if(!nuevo) return;
+  const validos = ["Asistió","Retardo","Falta","Falta Justificada"];
+  if(!validos.includes(nuevo)){ toast("Estado no válido","err"); return; }
+  let r = asistenciaPorDoc(doc);
+  if(r){ r.estado = nuevo; } else { asistencias.push({documento:doc, hora: nowStr(), tipo:"Manual", estado:nuevo, hash:"n/a"}); }
+  log("Cambio de estado", `${doc} → ${nuevo} (RN-09, autorizado por instructor)`);
+  renderAll();
+}
+
+/* ---------------- ANALITICA ---------------- */
+function renderAnalytics(){
+  const bars = document.getElementById("riskBars");
+  const alertsBox = document.getElementById("alertsBox");
+  if(!aprendices.length){
+    bars.innerHTML = `<div class="empty-state"><div class="es-icon">▢</div><b>Sin datos</b><p>La analítica de riesgo aparecerá aquí en cuanto cargues aprendices en la ficha.</p></div>`;
+    alertsBox.innerHTML = "";
+    return;
+  }
+  const sorted = [...aprendices].sort((a,b)=> historial[b.documento]-historial[a.documento]);
+  bars.innerHTML = sorted.map(a=>{
+    const pct = historial[a.documento];
+    const color = pct>20? "var(--danger)" : pct>=10? "var(--warn)" : "var(--ok)";
+    return `<div style="margin-bottom:10px;">
+      <div style="display:flex;justify-content:space-between;font-size:12.5px;"><span>${a.nombre}</span><b style="font-family:var(--font-mono)">${pct}%</b></div>
+      <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${color};"></div></div>
+    </div>`;
+  }).join("");
+
+  const criticos = aprendices.filter(a=>historial[a.documento]>20);
+  const advertencia = aprendices.filter(a=>historial[a.documento]>=10 && historial[a.documento]<=20);
+  let html = "";
+  criticos.forEach(a=> html += `<div class="alert crit"><b>Riesgo Crítico (&gt;20%)</b><br>${a.nombre} · ${historial[a.documento]}% inasistencia</div>`);
+  advertencia.forEach(a=> html += `<div class="alert warn"><b>Advertencia (10–20%)</b><br>${a.nombre} · ${historial[a.documento]}% inasistencia</div>`);
+  if(!criticos.length && !advertencia.length) html = `<div class="alert ok">Sin aprendices en riesgo actualmente.</div>`;
+  alertsBox.innerHTML = html;
+}
+
+/* ---------------- EXPORTAR ---------------- */
+async function exportCSV(){
+  if(!aprendices.length){ toast("No hay aprendices en la ficha para exportar","warnc"); return; }
+  const header = "documento,nombre,hora_entrada,tipo,estado\n";
+  const rows = aprendices.map(a=>{
+    const r = asistenciaPorDoc(a.documento);
+    return [a.documento, a.nombre, r?r.hora:"", r?r.tipo:"", r?r.estado:"Falta"].join(",");
+  }).join("\n");
+  const csv = header+rows;
+  const hash = await sha256(csv+SECRET);
+  const blob = new Blob([csv+`\n\n# hash_verificacion:${hash}\n# sesion:${sesionActual.id}\n# ficha:${ficha.id}\n# generado:${new Date().toLocaleString('es-CO')}`], {type:"text/csv"});
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url; link.download = `asistencia_${ficha.id}_${sesionActual.id}.csv`;
+  link.click();
+  document.getElementById("exportInfo").textContent = "Hash de verificación (RN-10): " + hash.slice(0,32) + "...";
+  log("Exportación de reporte", `CSV generado con hash ${hash.slice(0,12)}...`);
+  toast("Reporte exportado ✓");
+}
+
+/* ---------------- CARGAR FICHA ---------------- */
+function parseCSV(text){
+  const lines = text.trim().split("\n").filter(l=>l.trim());
+  let added = 0, skipped = 0;
+  lines.forEach(line=>{
+    const parts = line.split(",").map(p=>p.trim());
+    if(parts.length<2 || parts[0].toLowerCase()==="documento") return;
+    const [documento, nombre, apellido=""] = parts;
+    if(!documento || aprendizPorDoc(documento)){ skipped++; return; }
+    aprendices.push({documento, nombre: apellido? `${nombre} ${apellido}` : nombre});
+    historial[documento] = Math.round(Math.random()*15);
+    added++;
+  });
+  return {added, skipped};
+}
+function handleFile(ev){
+  const file = ev.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e=>{
+    const {added, skipped} = parseCSV(e.target.result);
+    document.getElementById("loadResult").textContent = `Importados: ${added} · Duplicados/omitidos: ${skipped}`;
+    log("Carga de ficha", `Archivo ${file.name}: ${added} aprendices agregados`);
+    toast(`${added} aprendices importados ✓`);
+    fillDemoSelect();
+    renderAll();
+  };
+  reader.readAsText(file);
+}
+function importPasted(){
+  const text = document.getElementById("csvPaste").value;
+  if(!text.trim()){ toast("Pega contenido CSV primero","warnc"); return; }
+  const {added, skipped} = parseCSV(text);
+  document.getElementById("loadResult").textContent = `Importados: ${added} · Duplicados/omitidos: ${skipped}`;
+  log("Carga de ficha (texto pegado)", `${added} aprendices agregados`);
+  toast(`${added} aprendices importados ✓`);
+  document.getElementById("csvPaste").value="";
+  fillDemoSelect();
+  renderAll();
+}
+
+/* ---------------- GESTIÓN DE APRENDICES (alta / baja individual) ---------------- */
+function agregarAprendizManual(){
+  const docInput = document.getElementById("nuevoDocumento");
+  const nombreInput = document.getElementById("nuevoNombre");
+  const documento = docInput.value.trim();
+  const nombre = nombreInput.value.trim();
+  const msg = document.getElementById("gestionMsg");
+
+  if(!documento || !/^\d+$/.test(documento)){
+    msg.textContent = "El documento debe contener solo números."; toast("Documento inválido","warnc"); return;
+  }
+  if(!nombre){
+    msg.textContent = "El nombre es obligatorio."; toast("Falta el nombre","warnc"); return;
+  }
+  if(aprendizPorDoc(documento)){
+    msg.textContent = "Ya existe un aprendiz con ese documento."; toast("Documento duplicado","warnc"); return;
+  }
+
+  aprendices.push({documento, nombre});
+  historial[documento] = Math.round(Math.random()*15);
+  log("Alta de aprendiz", `${nombre} (CC ${documento})`);
+  toast("Aprendiz agregado ✓");
+  docInput.value = ""; nombreInput.value = "";
+  msg.textContent = "";
+  fillDemoSelect(); // el selector del escáner de demo también debe incluirlo
+  renderAll();
+}
+
+function eliminarAprendiz(doc){
+  const ap = aprendizPorDoc(doc);
+  if(!ap) return;
+  if(!confirm(`¿Eliminar a ${ap.nombre} (CC ${doc}) de la ficha? Esto también borra su registro de asistencia en esta sesión.`)) return;
+
+  aprendices = aprendices.filter(a=>a.documento!==doc);
+  asistencias = asistencias.filter(a=>a.documento!==doc);
+  delete historial[doc];
+  log("Baja de aprendiz", `${ap.nombre} (CC ${doc})`);
+  toast("Aprendiz eliminado ✓");
+  fillDemoSelect();
+  renderAll();
+}
+
+function renderGestion(){
+  const tbody = document.getElementById("gestionBody");
+  document.getElementById("totalGestion").textContent = aprendices.length;
+  tbody.innerHTML = aprendices.map(a=>`
+    <tr>
+      <td>${a.documento}</td><td><b>${a.nombre.toUpperCase()}</b></td>
+      <td><a href="javascript:void(0)" onclick="eliminarAprendiz('${a.documento}')" style="color:var(--danger);font-weight:600;">Eliminar</a></td>
+    </tr>`).join("") || `<tr><td colspan="3" style="padding:0;border:none;"><div class="empty-state"><div class="es-icon">▢</div><b>Sin aprendices en la ficha</b><p>Agrega el primero con el formulario de la izquierda, o importa un CSV completo en "Cargar Ficha".</p></div></td></tr>`;
+}
+
+/* ---------------- AUDITORIA ---------------- */
+function renderAuditoria(){
+  const tbody = document.getElementById("auditBody");
+  tbody.innerHTML = auditoria.map(a=>`
+    <tr><td class="small">${a.fecha}</td><td>${a.usuario}</td><td><b>${a.accion}</b></td><td class="small muted">${a.detalle}</td></tr>
+  `).join("") || `<tr><td colspan="4" class="muted" style="text-align:center;padding:16px;">Sin eventos registrados</td></tr>`;
+}
+
+/* ---------------- RENDER GENERAL ---------------- */
+function renderStats(){
+  const total = aprendices.length;
+  const asistio = asistencias.filter(a=>a.estado==="Asistió").length;
+  const retardo = asistencias.filter(a=>a.estado==="Retardo").length;
+  // Faltas = aprendices sin ningún registro (Falta implícita) + registros marcados explícitamente
+  // como Falta o Falta Justificada (p.ej. tras una corrección manual del instructor).
+  const sinRegistro = total - asistencias.length;
+  const faltasExplicitas = asistencias.filter(a=>a.estado==="Falta"||a.estado==="Falta Justificada").length;
+  const faltas = sinRegistro + faltasExplicitas;
+  const pct = n => total? ((n/total)*100).toFixed(1) : "0.0";
+  document.getElementById("statRow").innerHTML = `
+    <div class="stat-card" data-idx="01">
+      <div class="stat-icon" style="background:var(--paper);color:var(--ink);">👥</div>
+      <div><div class="lbl">Total Aprendices</div><div class="val">${total}</div><div class="sub">Ficha ${ficha.id}</div></div>
+    </div>
+    <div class="stat-card" data-idx="02">
+      <div class="stat-icon" style="background:var(--ok-bg);color:var(--ok);">✓</div>
+      <div><div class="lbl">Asistieron</div><div class="val" style="color:var(--ok)">${asistio}</div><div class="sub">${pct(asistio)}% del total</div></div>
+    </div>
+    <div class="stat-card" data-idx="03">
+      <div class="stat-icon" style="background:var(--warn-bg);color:var(--warn);">⏱</div>
+      <div><div class="lbl">Retardos</div><div class="val" style="color:var(--warn)">${retardo}</div><div class="sub">${pct(retardo)}% del total</div></div>
+    </div>
+    <div class="stat-card" data-idx="04">
+      <div class="stat-icon" style="background:var(--danger-bg);color:var(--danger);">✕</div>
+      <div><div class="lbl">Faltas / Pendientes</div><div class="val" style="color:var(--danger)">${faltas}</div><div class="sub">${pct(faltas)}% del total</div></div>
+    </div>
+  `;
+}
+function renderRecent(){
+  const recent = [...asistencias].slice(-6).reverse();
+  const box = document.getElementById("recentList");
+  if(!recent.length){
+    box.innerHTML = `<div class="empty-state" style="padding:22px 16px;"><div class="es-icon">▢</div><b>Aún no hay registros</b><p>Cuando registres asistencia por QR o manualmente, los últimos aparecerán aquí.</p></div>`;
+    return;
+  }
+  box.innerHTML = recent.map(r=>{
+    const ap = aprendizPorDoc(r.documento);
+    const map = {"Asistió":["b-ok","✓"],"Retardo":["b-warn","⏱"],"Falta":["b-bad","✕"],"Falta Justificada":["b-info","i"]};
+    const [cls,icon] = map[r.estado]||["b-muted","·"];
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--line-soft);">
+      <div><b class="small">${ap?ap.nombre:r.documento}</b><br><span class="small muted">CC ${r.documento} · ${r.hora}</span></div>
+      <span class="badge ${cls}">${icon} ${r.estado}</span>
+    </div>`;
+  }).join("");
+}
+function renderAll(){
+  renderStats(); renderRecent(); renderListado(); renderAnalytics();
+}
+
+/* ---------------- INIT ---------------- */
+document.getElementById("pillSesion").textContent = `Sesión ${ficha.id} · ${ficha.programa}`;
+document.getElementById("infoFicha").textContent = ficha.id;
+document.getElementById("infoPrograma").textContent = ficha.programa;
+document.getElementById("infoFecha").textContent = sesionActual.fecha;
+document.getElementById("infoInstructor").textContent = INSTRUCTOR;
+
+fillDemoSelect();
+regenerateToken();
+renderAll();
+renderGestion();
+log("Inicio de sesión de asistencia", `Ficha ${ficha.id}, instructor ${INSTRUCTOR} · ficha iniciada vacía`);
+
+document.getElementById("helpModal").addEventListener("click", e=>{
+  if(e.target.id==="helpModal") e.target.classList.remove("open");
+});
+</script>
+</body>
+</html>
